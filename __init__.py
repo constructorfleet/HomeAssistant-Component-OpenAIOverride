@@ -101,7 +101,7 @@ async def async_setup(hass, config):
     """Set up the openai_override component."""
     conf = config[DOMAIN]
     start_token = conf[ATTR_RESPONSE_PARSER_START]
-    service_regex = re.compile("({}.+?{})".format(conf[ATTR_RESPONSE_PARSER_START], conf[ATTR_RESPONSE_PARSER_END]))
+    service_regex = re.compile(r"^(\{.+?\})$")  # "({}.+?{})".format(conf[ATTR_RESPONSE_PARSER_START], conf[ATTR_RESPONSE_PARSER_END]))
 
     _LOGGER.info("Start token: {}".format(start_token))
 
@@ -119,7 +119,8 @@ async def async_setup(hass, config):
         _LOGGER.info("Speech: {}".format(result.response.speech["plain"]["speech"]))
 
         segments = service_regex.split(result.response.speech["plain"]["speech"])
-        content = ".  ".join([segment for segment in segments if start_token not in segment])
+        [_LOGGER.info("Segment: {}".format(segment)) for segment in segments]
+        content = ".  ".join([segment for segment in segments if "{" not in segment])
 
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(content)

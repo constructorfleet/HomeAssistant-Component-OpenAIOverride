@@ -6,7 +6,6 @@
   "requirements": [
   ],
   "dependencies": [
-    "conversation"
   ],
   "codeowners": [
     "@teagan42"
