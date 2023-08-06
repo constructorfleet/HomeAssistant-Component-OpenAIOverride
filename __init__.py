@@ -99,11 +99,6 @@ CONFIG_SCHEMA = vol.Schema({
 
 async def async_setup(hass, config):
     """Set up the openai_override component."""
-    conf = config[DOMAIN]
-    start_token = conf[ATTR_RESPONSE_PARSER_START]
-    service_regex = re.compile(r"^(\{.+?\})$")  # "({}.+?{})".format(conf[ATTR_RESPONSE_PARSER_START], conf[ATTR_RESPONSE_PARSER_END]))
-
-    _LOGGER.info("Start token: {}".format(start_token))
 
     from homeassistant.components.openai_conversation import OpenAIAgent
 
@@ -116,11 +111,27 @@ async def async_setup(hass, config):
         if result.response.error_code is not None:
             return result
 
-        _LOGGER.info("Speech: {}".format(result.response.speech["plain"]["speech"]))
+        import json
+        _LOGGER.info(json.dumps(result.response.speech))
 
-        segments = service_regex.split(result.response.speech["plain"]["speech"])
-        [_LOGGER.info("Segment: {}".format(segment)) for segment in segments]
-        content = ".  ".join([segment for segment in segments if "{" not in segment])
+        content = ""
+        segments = result.response.speech["plain"]["speech"].splitlines()
+        for segment in segments:
+            _LOGGER.info("Segment: {}".format(segment))
+            if segment.startswith("{"):
+                service_call = json.loads(segment)
+                service = service_call.pop("service")
+                if not service or not service_call:
+                    _LOGGER.info('Missing information')
+                    continue
+                await hass.services.async_call(
+                        service.split(".")[0],
+                        service.split(".")[1],
+                        service_call,
+                        blocking=True,
+                        limit=0.3)
+            else:
+                content = "{}.  {}".format(content, segment)
 
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(content)
@@ -128,10 +139,6 @@ async def async_setup(hass, config):
             response=intent_response, conversation_id=result.conversation_id
         )
 
-        result.response.async_set_speech(
-            )
-
-        return result
 
     OpenAIAgent.async_process = async_process
 
